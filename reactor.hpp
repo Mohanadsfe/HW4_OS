@@ -29,3 +29,8 @@ void startReactor(void*);
 void addFd(void*,int fd, handler_t handler);
 void WaitFor(void*);
 
+
+void recv_print();
+
+void handle_newConn();
+

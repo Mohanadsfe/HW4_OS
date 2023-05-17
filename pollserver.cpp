@@ -112,38 +112,11 @@ void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
     (*fd_count)--;
 }
 
-void *threadFun(void *arg)
-{
-    reqeust * req = &((reqeust *)arg)[0];
-    int fd = req->fd;
 
-    for(;;)
-    {
-        int bytes = recv(fd, buff, sizeof(buff), 0);
-        if (bytes <= 0)
-        {
-            printf("pollserver: socket %d disconnected\n", fd);
-            close(fd);
-            return NULL;
-        }
-        else
-        {
-            for (int i = 0; i < fd_count + 1; i++)
-            {
-                int client_fd = pfds[i].fd;
-                if (client_fd != listener && client_fd != fd)
-                {
-                    send(client_fd, buff, bytes, 0);
-                }
-            }
-            bzero(buff, 1024);
-        }
-    }
-}
-
-// Main
 int main(void)
 {
+
+
     int newfd;                          // Newly accept()ed socket descriptor
     struct sockaddr_storage remoteaddr; // Client address
     socklen_t addrlen;
@@ -171,6 +144,7 @@ int main(void)
 
     fd_count = 1; // For the listener
 
+
     // Main loop
     for (;;)
     {
@@ -187,83 +161,41 @@ int main(void)
 
             if (pfds[i].revents & POLLIN)
             { 
-
-                if (pfds[i].fd == listener)
+                int cfds = pfds[i].fd;
+                if (cfds == listener)
                 {
                     // If listener is ready to read, handle new connection
+                 void * reac = createReactor(); 
+                 
+                 addFd(reac, cfds ,(reactor*)(reac)->handler.handlers[cfds]);/// ????
+                 startReactor(reac); 
 
-                    addrlen = sizeof remoteaddr;
-                    newfd = accept(listener,
-                                   (struct sockaddr *)&remoteaddr,
-                                   &addrlen);
+                    // addrlen = sizeof remoteaddr;
+                    // newfd = accept(listener,
+                    //                (struct sockaddr *)&remoteaddr,
+                    //                &addrlen);
 
-                    if (newfd == -1)
-                    {
-                        perror("accept");
-                    }
-                    else
-                    {
-                        add_to_pfds(&pfds, newfd, &fd_count, &fd_size);
+                    // if (newfd == -1)
+                    // {
+                    //     perror("accept");
+                    // }
+                    // else
+                    // {
+                    //     add_to_pfds(&pfds, newfd, &fd_count, &fd_size);
 
-                        printf("pollserver: new connection from %s on "
-                               "socket %d\n",
-                               inet_ntop(remoteaddr.ss_family,
-                                         get_in_addr((struct sockaddr *)&remoteaddr),
-                                         remoteIP, INET6_ADDRSTRLEN),
-                               newfd);
-                        void * reac = createReactor();
-                        addFd(reac, newfd, handler_func);/// ????
+                    //     printf("pollserver: new connection from %s on "
+                    //            "socket %d\n",
+                    //            inet_ntop(remoteaddr.ss_family,
+                    //            get_in_addr((struct sockaddr *)&remoteaddr),
+                    //            remoteIP, INET6_ADDRSTRLEN), newfd);
+
+                        
+
                     }
                 }
-                else
-                {
-                    // If not the listener, we're just a regular client
-                    int nbytes = recv(pfds[i].fd, buff, sizeof buff, 0);
-
-                    int sender_fd = pfds[i].fd;
-
-                    if (nbytes <= 0)
-                    {
-                        // Got error or connection closed by client
-                        if (nbytes == 0)
-                        {
-                            // Connection closed
-                            printf("pollserver: socket %d hung up\n", sender_fd);
-                        }
-                        else
-                        {
-                            perror("recv");
-                        }
-
-                        close(pfds[i].fd); // Bye!
-
-                        del_from_pfds(pfds, i, &fd_count);
-                    }
-                    else
-                    {
-                        // We got some good data from a client
-
-
-                        startReactor(); ////??????????????
-                        // for (int j = 0; j < fd_count; j++)
-                        // {
-                        //     // Send to everyone!
-                        //     int dest_fd = pfds[j].fd;
-
-                        //     // Except the listener and ourselves
-                        //     if (dest_fd != listener && dest_fd != sender_fd)
-                        //     {
-                        //         if (send(dest_fd, buff, nbytes, 0) == -1)
-                        //         {
-                        //             perror("send");
-                        //         }
-                        //     }
-                        // }
-                    }
-                } // END handle data from client
+                
             }     // END got ready-to-read from poll()
         }         // END looping through file descriptors
-    }             // END for(;;)--and you thought it would never end!
-
+                 // END for(;;)--and you thought it would never end!
     return 0;
 }
